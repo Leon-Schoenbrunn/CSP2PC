@@ -110,22 +110,38 @@ def pick_files():
 def extract_pngs_from_sut(sut_path: Path, dest_dir: Path) -> List[Path]:
     dest_dir.mkdir(parents=True, exist_ok=True)
     sqlite_tmp = dump_sqlite_blob(sut_path)
-    con = sqlite3.connect(sqlite_tmp)
-    cur = con.cursor()
-    rows = cur.execute("SELECT _PW_ID, FileData FROM MaterialFile").fetchall()
-    if not rows:
-        raise RuntimeError("No FileData rows found — brush has no embedded images?")
 
     paths: List[Path] = []
-    for idx, (_id, blob) in enumerate(rows):
+    try:
+        con = sqlite3.connect(sqlite_tmp)
+        cur = con.cursor()
+
         try:
-            png_bytes = _extract_png_from_layer(blob)
-            path = dest_dir / f"stamp_{idx:02d}.png"
-            path.write_bytes(png_bytes)
-            paths.append(path)
-        except Exception as exc:
-            print(f"[WARN] layer {_id} skipped: {exc}")
-    cur.close(); con.close(); sqlite_tmp.unlink(missing_ok=True)
+            rows = cur.execute("SELECT _PW_ID, FileData FROM MaterialFile").fetchall()
+        except sqlite3.OperationalError:
+            # Table not found — unusual .sut layout
+            return []
+
+        if not rows:
+            return []
+
+        for idx, (_id, blob) in enumerate(rows):
+            try:
+                png_bytes = _extract_png_from_layer(blob)
+                path = dest_dir / f"stamp_{idx:02d}.png"
+                path.write_bytes(png_bytes)
+                paths.append(path)
+            except Exception as exc:
+                print(f"[WARN] layer {_id} skipped: {exc}")
+
+    finally:
+        try:
+            cur.close()
+            con.close()
+        except Exception:
+            pass
+        sqlite_tmp.unlink(missing_ok=True)
+
     return paths
 
 # ---------------------------------------------------------------------------

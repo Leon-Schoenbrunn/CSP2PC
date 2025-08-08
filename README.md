@@ -4,7 +4,7 @@
 Convert Clip Studio Paint `.sut` brushes to Procreate `.brush` or `.brushset` files with automatic mapping for many brush settings.  
 Supports both **CLI usage** and **standalone executable** mode with file picker.
 
-⚠️ *Note: Some CSP-specific functionality has no direct equivalent in Procreate and cannot be mapped. This script is by no means a perfect 1:1 conversion.*
+⚠️ *Note: Some CSP-specific functionality has no direct equivalent in Procreate and cannot be mapped. This script is by no means a perfect 1:1 conversion. However, it automates the annoying many annoying parts of the conversion and with some setting changes after the import, many brushes can be recreated.*
 
 ##  Features
 

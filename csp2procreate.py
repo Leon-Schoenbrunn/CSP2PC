@@ -142,19 +142,23 @@ def read_variant_row(sqlite_path: Path):
     con.close()
     return dict(zip(names, row))
     
-def csp_to_plotSpacing(variant, fudge_factor=0.6):
-    """
-    Helper function to calculate brush spacing
-    """
-    size_px     = variant["BrushSize"] or 1            # guard ÷0
-    interval_px = variant["BrushInterval"]
-    
-    if size_px == 0:
-        return 0.01
-        
-    raw_spacing = interval_px / size_px
-    adjusted_spacing = raw_spacing * fudge_factor
+def csp_to_plotSpacing(variant):
+    size_px     = variant.get("BrushSize", 1) or 1
+    interval_px = variant.get("BrushInterval", 0) or 0
 
+    if size_px <= 0:
+        return 0.01
+    raw_spacing = interval_px / size_px
+
+    # Adjust fudge factor: larger brushes can have higher spacing multipliers
+    if size_px < 50:
+        fudge_factor = 0.15
+    elif size_px < 100:
+        fudge_factor = 0.3
+    else:
+        fudge_factor = 0.6
+
+    adjusted_spacing = raw_spacing * fudge_factor
     return max(0.01, min(1.0, adjusted_spacing))
 
 
@@ -196,21 +200,27 @@ def map_csp_to_wet_mix(variant):
     """
     Helper function to somewhat map to procreates wet-mix settings
     """
-    if not variant.get("BrushUseWaterColor", 0):
-        return {
-            "wetMixDilution": 0.0,
-            "wetMixCharge": 1.0,
-            "wetMixAttack": 1.0,
-            "wetMixPull": 0.0,
-        }
+    use_wc   = bool(variant.get("BrushUseWaterColor", 0))
+    mix_col  = float(variant.get("BrushMixColor", 0) or 0)
+    mix_alpha= float(variant.get("BrushMixAlpha", 0) or 0)
+    flow     = float(variant.get("BrushFlow", 100) or 100)
+    nc = max(0.0, min(1.0, mix_col/100.0))
+    na = max(0.0, min(1.0, mix_alpha/100.0))
+    nf = max(0.0, min(1.0, flow/100.0))
+    if not use_wc and nc < 0.5:
+        dilution = 0.0
+    else:
+        gamma = 0.75
+        cap   = 0.7
+        base = nc ** gamma
+        flow_brake = 0.5 + 0.5*(1.0 - nf)
+        alpha_push = 0.2*na
 
-    def clamp(x, min_val=0.0, max_val=1.0):
-        return max(min_val, min(max_val, x))
+        dilution = min(cap, base*cap*flow_brake + alpha_push*cap)
 
-    dilution = clamp(variant.get("BrushMixColor", 0.0))
-    attack   = 1.0 - clamp(variant.get("BrushMixAlpha", 0.0))
-    pull     = clamp(variant.get("BrushWaterColor", 0.0))
-    charge   = 1.0 - dilution
+    charge = max(0.2, 1.0 - dilution)
+    attack = 1.0 - 0.5*na
+    pull = 0.6 if use_wc else 0.0
 
     return {
         "wetMixDilution": dilution,
@@ -218,6 +228,7 @@ def map_csp_to_wet_mix(variant):
         "wetMixAttack":   attack,
         "wetMixPull":     pull,
     }
+
 
 def finalise_seed_brush(bundle_dir: Path, stamp_png: Path, new_name: str, sql_tmp: Path | None = None) -> None:
     """
@@ -243,7 +254,7 @@ def finalise_seed_brush(bundle_dir: Path, stamp_png: Path, new_name: str, sql_tm
     now = float(time.time())
     variant = read_variant_row(sql_tmp)
     spacing = csp_to_plotSpacing(variant)
-    min_px, max_px, opacity = 0.3, 3.0, 1.0
+    min_px, max_px, opacity = 0.02, 3.0, 1.0
     flow_val = variant.get("BrushFlow",  1000)
     flow_val = max(0, min(1000, flow_val))
     randomized  = variant.get("BrushRotationRandomInSpray")
@@ -267,6 +278,7 @@ def finalise_seed_brush(bundle_dir: Path, stamp_png: Path, new_name: str, sql_tm
     BrushOutRatio  = variant.get("BrushOutRatio")
     render_flags = map_csp_rendering_flags(variant)
     wetMix_flags = map_csp_to_wet_mix(variant)
+    angle_sensitive = variant.get("BrushRotationEffector") == 3
 
     for obj in objs:
         if not isinstance(obj, dict):
@@ -327,6 +339,8 @@ def finalise_seed_brush(bundle_dir: Path, stamp_png: Path, new_name: str, sql_tm
             obj["plotJitter"] = float(jitter_val) 
             
         # (l) Taper
+        if "taperPressure" in obj:
+            obj["taperPressure"] = float(0)
         if BrushUseIn or BrushUseOut:
             if "pencilTaperStartLength" in obj:
                 obj["pencilTaperStartLength"] = float((BrushInLength/100)/4)
@@ -350,6 +364,17 @@ def finalise_seed_brush(bundle_dir: Path, stamp_png: Path, new_name: str, sql_tm
             obj["dynamicsPressureMix"] = float(wetMix_flags['wetMixAttack'])
         if "dynamicsWetAccumulation" in obj:
             obj["dynamicsWetAccumulation"] = float(wetMix_flags['wetMixPull'])
+            
+        # (o) shape input-style for angle sensitivity
+        if angle_sensitive:
+            if "shapeAzimuth" in obj:
+                obj["shapeAzimuth"] = True
+            if "shapeRoll" in obj:
+                obj["shapeRoll"] = True
+            if "shapeRollMode" in obj:
+                obj["shapeRollMode"] = 1
+            if "shapeOrientation" in obj:
+                obj["shapeOrientation"] = 1
 
         if stamped and renamed:
             break

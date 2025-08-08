@@ -60,7 +60,7 @@ Run:
 python csp2procreate.py mybrush.sut output_dir
 ```
 
-## 📄 License
+## License
 
 Licensed under the [MIT License](LICENSE).
 

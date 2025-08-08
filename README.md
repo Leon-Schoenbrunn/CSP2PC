@@ -26,7 +26,7 @@ python csp2procreate.py mybrush.sut output_directory
 ```
 
 ### 2. Packaged Executable
-- Double-click the [executable](executable)
+- Double-click the [executable](https://github.com/Leon-Schoenbrunn/CSP2PC/releases/latest)
 - Select your `.sut` file and output directory
 
 ## Output

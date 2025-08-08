@@ -47,7 +47,7 @@ Some CSP brush features cannot be fully represented in Procreate, including:
 Clone the repository:
 ```bash
 git clone https://github.com/yourname/csp2procreate.git
-cd csp2procreate
+cd CSP2PC
 ```
 
 Install dependencies:

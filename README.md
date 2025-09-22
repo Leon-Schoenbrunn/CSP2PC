@@ -1,6 +1,8 @@
 
 # CSP → Procreate Brush Converter
 
+⚠️ With the release of 5.4 new brush features have been added. This might: 1. **break the script.** 2. theoretically improve future script iterations that implement these new brush settings during conversion. ⚠️
+
 Convert Clip Studio Paint `.sut` brushes to Procreate `.brush` or `.brushset` files with automatic mapping for many brush settings.  
 Supports both **CLI usage** and **standalone executable** mode with file picker.
 
